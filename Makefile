@@ -4,6 +4,7 @@ CFLAGS =
 all: run.o chip_8.o graphics.o keyboard.o memory.o stack.o cpu.o 
 	$(CC) $(CFLAGS) -o chip_8 run.o chip_8.o \
 	graphics.o keyboard.o memory.o stack.o cpu.o
+	./chip_8
 
 run.o: run.c
 	$(CC) $(CFLAGS) -c run.c
@@ -29,5 +30,3 @@ cpu.o: cpu.c cpu.h
 clean:
 	rm -f *.o *.gch chip_8 
 
-rebuild:
-	clean all

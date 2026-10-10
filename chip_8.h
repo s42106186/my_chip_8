@@ -9,5 +9,4 @@
 #include "cpu.h"
 
 void Init();
-
 #endif

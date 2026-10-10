@@ -1,8 +1,12 @@
 #ifndef GRAPHICS 
 #define GRAPHICS 
 
-extern unsigned char display[64*32];
+#include <stdio.h>
 
-void ClearDisplay(unsigned char display[64*32]);
+extern unsigned char display[2048];
+extern unsigned char update;
+
+void ClearDisplay();
+void UpdateDisplay();
 
 #endif

@@ -2,14 +2,16 @@
 
 void Init()
 {
-	ClearStack(stack);
-	ClearDisplay(display);
-	ClearMemory(memory);
-	ClearRegisters(v);
-	pc = 0x200;
+	ClearStack();
+	ClearDisplay();
+	ClearMemory();
+	ClearRegisters();
 	opcode = 0;
-	i = 0;
+	pc = 0x200;
 	sp = 0;
-	//timers
-	//load fonts	
+        dt = 0;
+	st = 0;
+	i = 0;
+	WriteFontsToMemory();	
 }
+

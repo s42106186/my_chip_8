@@ -1,6 +1,10 @@
 #ifndef CPU 
 #define CPU 
 
+#include <stdio.h>
+#include "graphics.h"
+#include "memory.h"
+
 //registers 0-E - general, F - flag
 extern unsigned char v[16];
 //register - delay timer
@@ -15,6 +19,7 @@ extern unsigned short pc;
 //code operation
 extern unsigned short opcode;
 
-void ClearRegisters(unsigned char v[16]);
+void ClearRegisters();
+void EmulateCycle();
 
 #endif
