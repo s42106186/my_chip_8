@@ -1,6 +1,7 @@
 #include "graphics.h"
 
 unsigned char display[2048];
+unsigned int display2[2048];
 unsigned char update = 0;
 
 void ClearDisplay()
@@ -12,18 +13,10 @@ void ClearDisplay()
 void UpdateDisplay()
 {
   for(size_t i = 0; i < 2048; ++i) {
-    if(i % 64 == 0)
-	    printf("|");
     if(display[i] == 1)
-      printf("#");
+      display2[i] = 0xFFFFFFFF;
     else
-      printf(" ");
-  }
-  putchar('\n');
-
-  for(unsigned char i = 0; i < 64; ++i) {
-    putchar('-');
+      display2[i] = 0xFF000000;
   }
   return;
 }
-
