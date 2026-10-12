@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include "graphics.h"
 #include "memory.h"
+#include "stack.h"
 
 //registers 0-E - general, F - flag
 extern unsigned char v[16];

@@ -11,9 +11,9 @@ void ClearMemory()
 
 void WriteRomsToMemory()
 {
-  int fd = open("roms/chip8_logo.ch8", O_RDONLY);
+  int fd = open("../roms/flags.ch8", O_RDONLY);
   if(fd == -1) {
-    perror("roms/chip8_logo.ch8");
+    perror("../roms/flags.ch8");
     return;
   }
 

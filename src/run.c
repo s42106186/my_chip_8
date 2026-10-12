@@ -4,12 +4,12 @@ int main(void)
 {
 	Init();
 	WriteRomsToMemory();
-	for(int i = 0; i < 39; ++i) {
+	for(; ;) {
 		update = 0;
 		EmulateCycle();
-		//printf("0x%X ", opcode);
+	//	printf("0x%X ", opcode);
 		if(update)
-		  UpdateDisplay();
+ 		  UpdateDisplay();
 	}
 	return 0;
 }
