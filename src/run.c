@@ -4,9 +4,10 @@
 #include "chip_8.h"
 
 typedef struct { 
-  SDL_Window *win;
-  SDL_Renderer *ren;
+  SDL_Window* win;
+  SDL_Renderer* ren;
   SDL_Texture* tex; 
+  Chip8 chip8;
 } App;
 
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
@@ -25,8 +26,10 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
     SDL_Log("Couldn't create window/renderer: %s", SDL_GetError());
     return SDL_APP_FAILURE;
   }
-
-  Init();
+  
+  if(!InitChip8(&app->chip8)) return SDL_APP_FAILURE;
+  if(!WriteFontsToMemory(app->chip8.memory)) return SDL_APP_FAILURE;
+  if(!WriteRomsToMemory(app->chip8.memory)) return SDL_APP_FAILURE;
 
   app->tex =  SDL_CreateTexture(app->ren, SDL_PIXELFORMAT_ARGB8888, 
 		  SDL_TEXTUREACCESS_STREAMING, 64, 32);
@@ -48,12 +51,11 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
 SDL_AppResult SDL_AppIterate(void *appstate)
 {
     App *app = appstate;
-    EmulateCycle();
-
-    if(update) {
-      UpdateDisplay();
+    EmulateCycle(&app->chip8);
+    //printf("%X\n", app->chip8.opcode);
+    if(app->chip8.update) {
       SDL_RenderClear(app->ren);
-      SDL_UpdateTexture(app->tex, NULL, display2, 256);
+      SDL_UpdateTexture(app->tex, NULL, app->chip8.display, 256);
       SDL_RenderTexture(app->ren, app->tex, NULL, NULL);
       SDL_RenderPresent(app->ren);
     }
