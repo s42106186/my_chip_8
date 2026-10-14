@@ -27,6 +27,9 @@ bool InitChip8(Chip8* chip8)
   if(!chip8->display) return false;
   ClearDisplay(chip8->display);
   chip8->update = false;
+  //keyboard
+  chip8->keyboard = calloc(KEYBOARD_SIZE, sizeof(uint8_t));
+  if(!chip8->keyboard) return false;
 
   return true; 
 }
@@ -60,9 +63,9 @@ bool WriteFontsToMemory(uint8_t *memory)
 
 bool WriteRomsToMemory(uint8_t *memory)
 {
-  int fd = open("../roms/flags.ch8", O_RDONLY);
+  int fd = open("../roms/keypad.ch8", O_RDONLY);
   if(fd == -1) {
-    perror("../roms/flags.ch8");
+    perror("../roms/keypad.ch8");
     return false;
   }
 
@@ -233,6 +236,16 @@ static void Opcode_Bnnn(Chip8* chip8)
   chip8->pc = (chip8->opcode & 0xFFF) + (uint16_t)chip8->v[0x0];
 }
 
+static void Opcode_Cxkk(Chip8* chip8)
+{
+  srand(time(NULL));
+  uint8_t rndm = random() % 0xFF;
+  uint8_t kk = chip8->opcode & 0x00FF;
+  chip8->v[(chip8->opcode & 0x0F00) >> 8] = rndm & kk; 
+  chip8->pc += 2;
+
+}
+
 static void Opcode_Dxyn(Chip8* chip8)
 {
   uint8_t x = chip8->v[(chip8->opcode & 0x0F00) >> 8];
@@ -258,10 +271,32 @@ static void Opcode_Dxyn(Chip8* chip8)
   chip8->update = true;
 }
 
+static void Opcode_Ex91(Chip8* chip8)
+{
+  uint8_t x = chip8->v[(chip8->opcode & 0x0F00) >> 8];
+  chip8->pc += (chip8->keyboard[x] == 1)  ? 4 : 2;
+}
+
+static void Opcode_ExA1(Chip8* chip8)
+{
+  uint8_t x = chip8->v[(chip8->opcode & 0x0F00) >> 8];
+  chip8->pc += (chip8->keyboard[x] == 0)  ? 4 : 2;
+}
+
 static void Opcode_Fx07(Chip8* chip8)
 {
   chip8->v[(chip8->opcode & 0x0F00) >> 8] = chip8->dt; 
   chip8->pc += 2;
+}
+
+static void Opcode_Fx0A(Chip8* chip8)
+{
+  uint8_t k = 0x0;
+  for(; k < 0xF+1 && chip8->keyboard[k] == 0; ++k);
+  if(chip8->keyboard[k] == 1) {
+    chip8->v[(chip8->opcode & 0x0F00) >> 8] = k;
+    chip8->pc += 2;
+  }
 }
 
 static void Opcode_Fx15(Chip8* chip8)
@@ -390,28 +425,30 @@ void EmulateCycle(Chip8* chip8)
     case 0xB000: //Bnnn JP V0, addr
       Opcode_Bnnn(chip8);
       break;
-    /*
     case 0xC000: //Cxkk RND Vx, byte
+      Opcode_Cxkk(chip8);
       break;
-    */
     case 0xD000:
       Opcode_Dxyn(chip8);
       break;
-    /*
-    keyboard
-    case 0xE000: Ex91 ExA1
-      switch(
-    */
+    case 0xE000: //Ex91 ExA1
+      switch(chip8->opcode & 0x00F0) {
+	case 0x0090:
+          Opcode_Ex91(chip8);
+	  break; 
+	case 0x00A0:
+          Opcode_ExA1(chip8);
+	  break; 
+      }
+      break;
     case 0xF000:
       switch(chip8->opcode & 0x00FF) {
 	case 0x0007: //Fx07 LD Vx, DT
           Opcode_Fx07(chip8);
 	  break;
-	/*
-	keyboard
-	case 0x000A: Fx0A
+	case 0x000A: //Fx0A
+          Opcode_Fx0A(chip8);
 	  break;
-	*/
 	case 0x0015: //Fx15 LD DT, Vx
           Opcode_Fx15(chip8);
 	  break;

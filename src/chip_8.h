@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <time.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -19,6 +20,8 @@
 #define DISPLAY_SIZE 2048
 #define PIXEL_ON  0xFFFFFFFFu
 #define PIXEL_OFF 0xFF000000u
+
+#define KEYBOARD_SIZE 16
 
 typedef struct {
   //cpu
@@ -36,10 +39,8 @@ typedef struct {
   //graphics
   uint32_t *display;
   bool update;
-  /*
   //keyboard
-  unsigned char keyboard[16];
-  */
+  uint8_t *keyboard;
 } Chip8;
 
 bool InitChip8(Chip8* chip8);
