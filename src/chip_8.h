@@ -41,6 +41,7 @@ typedef struct {
   bool update;
   //keyboard
   uint8_t *keyboard;
+  int8_t pressed_key;
 } Chip8;
 
 bool InitChip8(Chip8* chip8);

@@ -8,6 +8,7 @@ typedef struct {
   SDL_Renderer* ren;
   SDL_Texture* tex; 
   Chip8 chip8;
+  uint64_t last_tick;
 } App;
 
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
@@ -15,7 +16,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
   App *app = SDL_calloc(1, sizeof(App));
   if(!app) return SDL_APP_FAILURE;
   *appstate = app;
-
+  
   if(!SDL_Init(SDL_INIT_VIDEO)) {
     SDL_Log("Couldn't initialize SDL: %s", SDL_GetError());
     return SDL_APP_FAILURE;
@@ -30,10 +31,13 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
   if(!InitChip8(&app->chip8)) return SDL_APP_FAILURE;
   if(!WriteFontsToMemory(app->chip8.memory)) return SDL_APP_FAILURE;
   if(!WriteRomsToMemory(app->chip8.memory)) return SDL_APP_FAILURE;
+  
   app->tex =  SDL_CreateTexture(app->ren, SDL_PIXELFORMAT_ARGB8888, 
 		  SDL_TEXTUREACCESS_STREAMING, 64, 32);
   if (!app->tex) return SDL_APP_FAILURE;
   SDL_SetTextureScaleMode(app->tex, SDL_SCALEMODE_NEAREST);
+
+  app->last_tick = SDL_GetTicks();
 
   return SDL_APP_CONTINUE; 
 }
@@ -41,7 +45,6 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
 {
   App *app = appstate;
-  SDL_Log("type=%d", event->type);
   switch(event->type) {
     case SDL_EVENT_QUIT:
       return SDL_APP_SUCCESS;
@@ -160,12 +163,21 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
 SDL_AppResult SDL_AppIterate(void *appstate)
 {
     App *app = appstate;
+
+    uint64_t now_tick = SDL_GetTicks();
+    if(now_tick - app->last_tick >= 17) {
+      if(app->chip8.dt > 0) app->chip8.dt--;
+      if(app->chip8.st > 0) app->chip8.st--;
+      app->last_tick+=17;
+    }
+
     EmulateCycle(&app->chip8);
     if(app->chip8.update) {
       SDL_RenderClear(app->ren);
       SDL_UpdateTexture(app->tex, NULL, app->chip8.display, 256);
       SDL_RenderTexture(app->ren, app->tex, NULL, NULL);
       SDL_RenderPresent(app->ren);
+      app->chip8.update = false;
     }
     return SDL_APP_CONTINUE; 
 }

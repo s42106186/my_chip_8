@@ -30,6 +30,7 @@ bool InitChip8(Chip8* chip8)
   //keyboard
   chip8->keyboard = calloc(KEYBOARD_SIZE, sizeof(uint8_t));
   if(!chip8->keyboard) return false;
+  chip8->pressed_key = -1;
 
   return true; 
 }
@@ -63,9 +64,9 @@ bool WriteFontsToMemory(uint8_t *memory)
 
 bool WriteRomsToMemory(uint8_t *memory)
 {
-  int fd = open("../roms/keypad.ch8", O_RDONLY);
+  int fd = open("../roms/quirks.ch8", O_RDONLY);
   if(fd == -1) {
-    perror("../roms/keypad.ch8");
+    perror("../roms/quirks.ch8");
     return false;
   }
 
@@ -93,6 +94,7 @@ bool WriteRomsToMemory(uint8_t *memory)
 static void Opcode_00E0(Chip8* chip8)
 {
   ClearDisplay(chip8->display);
+  chip8->update = true;
   chip8->pc += 2;
 }
 
@@ -158,6 +160,7 @@ static void Opcode_8xy1(Chip8* chip8)
 {
   uint8_t y = chip8->v[(chip8->opcode & 0x00F0) >> 4];
   chip8->v[(chip8->opcode & 0x0F00) >> 8] |= y;
+  chip8->v[0xF] = 0;
   chip8->pc += 2;
 }
 
@@ -165,6 +168,7 @@ static void Opcode_8xy2(Chip8* chip8)
 {
   uint8_t y = chip8->v[(chip8->opcode & 0x00F0) >> 4];
   chip8->v[(chip8->opcode & 0x0F00) >> 8] &= y;
+  chip8->v[0xF] = 0;
   chip8->pc += 2;
 }
 
@@ -172,6 +176,7 @@ static void Opcode_8xy3(Chip8* chip8)
 {
   uint8_t y = chip8->v[(chip8->opcode & 0x00F0) >> 4];
   chip8->v[(chip8->opcode & 0x0F00) >> 8] ^= y;
+  chip8->v[0xF] = 0;
   chip8->pc += 2;
 }
 
@@ -194,10 +199,15 @@ static void Opcode_8xy5(Chip8* chip8)
 }
 
 static void Opcode_8xy6(Chip8* chip8)
-{
+{ 
+  uint8_t y = chip8->v[(chip8->opcode & 0x00F0) >> 4];
+  chip8->v[(chip8->opcode & 0x0F00) >> 8] = y >> 1;
+  chip8->v[0xF] = ((y & 0x01) == 0x01) ? 1 : 0;
+  /*
   uint8_t x = chip8->v[(chip8->opcode & 0x0F00) >> 8];
   chip8->v[(chip8->opcode & 0x0F00) >> 8] /= 2; 
   chip8->v[0xF] = ((x & 0x01) == 0x01) ? 1 : 0;
+  */
   chip8->pc += 2;
 }
 
@@ -212,9 +222,14 @@ static void Opcode_8xy7(Chip8* chip8)
 
 static void Opcode_8xyE(Chip8* chip8)
 {
+  uint8_t y = chip8->v[(chip8->opcode & 0x00F0) >> 4];
+  chip8->v[(chip8->opcode & 0x0F00) >> 8] = y << 1;
+  chip8->v[0xF] = ((y & 0x80) == 0x80) ? 1 : 0;
+  /*
   uint8_t x = chip8->v[(chip8->opcode & 0x0F00) >> 8];
   chip8->v[(chip8->opcode & 0x0F00) >> 8] *= 2; 
   chip8->v[0xF] = ((x & 0x80) == 0x80) ? 1 : 0;
+  */
   chip8->pc += 2;
 }
 
@@ -248,8 +263,8 @@ static void Opcode_Cxkk(Chip8* chip8)
 
 static void Opcode_Dxyn(Chip8* chip8)
 {
-  uint8_t x = chip8->v[(chip8->opcode & 0x0F00) >> 8];
-  uint8_t y = chip8->v[(chip8->opcode & 0x00F0) >> 4];
+  uint8_t x = chip8->v[(chip8->opcode & 0x0F00) >> 8] % 64;
+  uint8_t y = chip8->v[(chip8->opcode & 0x00F0) >> 4] % 32;
   uint8_t h = chip8->opcode & 0x000F;
   uint8_t pixel;
 
@@ -261,26 +276,34 @@ static void Opcode_Dxyn(Chip8* chip8)
         if(chip8->display[x + xline + ((y + yline) * 64)] == PIXEL_ON) {
           chip8->display[x + xline + ((y + yline) * 64)] = PIXEL_OFF;
           chip8->v[0xF] = 1;
-        }
-        if(chip8->display[x + xline + ((y + yline) * 64)] == PIXEL_OFF)
+        }else {
           chip8->display[x + xline + ((y + yline) * 64)] = PIXEL_ON;
-        }
+        } 
+      }
     }
   }
   chip8->pc += 2;
   chip8->update = true;
 }
 
-static void Opcode_Ex91(Chip8* chip8)
+static void Opcode_Ex9E(Chip8* chip8)
 {
-  uint8_t x = chip8->v[(chip8->opcode & 0x0F00) >> 8];
-  chip8->pc += (chip8->keyboard[x] == 1)  ? 4 : 2;
+  uint8_t x = chip8->v[(chip8->opcode & 0x0F00) >> 8] & 0xF;
+  if(chip8->keyboard[x] == 1) {
+    chip8->pc += 4;
+  }else {
+    chip8->pc += 2;
+  }
 }
 
 static void Opcode_ExA1(Chip8* chip8)
 {
-  uint8_t x = chip8->v[(chip8->opcode & 0x0F00) >> 8];
-  chip8->pc += (chip8->keyboard[x] == 0)  ? 4 : 2;
+  uint8_t x = chip8->v[(chip8->opcode & 0x0F00) >> 8] & 0xF;
+  if(chip8->keyboard[x] == 0) {
+    chip8->pc += 4;
+  }else {
+    chip8->pc += 2;
+  }
 }
 
 static void Opcode_Fx07(Chip8* chip8)
@@ -291,11 +314,16 @@ static void Opcode_Fx07(Chip8* chip8)
 
 static void Opcode_Fx0A(Chip8* chip8)
 {
-  uint8_t k = 0x0;
-  for(; k < 0xF+1 && chip8->keyboard[k] == 0; ++k);
-  if(chip8->keyboard[k] == 1) {
-    chip8->v[(chip8->opcode & 0x0F00) >> 8] = k;
-    chip8->pc += 2;
+  if(chip8->pressed_key == -1) {
+    uint8_t k = 0x0;
+    for(; (k < 0xF + 0x1) && (chip8->keyboard[k] == 0); ++k);
+    if(chip8->keyboard[k] == 1) chip8->pressed_key = k;
+  }else{
+    if(chip8->keyboard[chip8->pressed_key] == 0){
+      chip8->v[(chip8->opcode & 0x0F00) >> 8] = chip8->pressed_key;
+      chip8->pressed_key = -1;
+      chip8->pc += 2;
+    }
   }
 }
 
@@ -353,6 +381,7 @@ void EmulateCycle(Chip8* chip8)
   uint16_t part_one = chip8->memory[chip8->pc] << 8;
   uint16_t part_two = chip8->memory[chip8->pc+1];
   chip8->opcode = part_one | part_two;
+  //printf("0x%X\n", chip8->opcode);
   switch(chip8->opcode & 0xF000) {
     case 0x0000:
       switch(chip8->opcode & 0x000F) {
@@ -431,12 +460,12 @@ void EmulateCycle(Chip8* chip8)
     case 0xD000:
       Opcode_Dxyn(chip8);
       break;
-    case 0xE000: //Ex91 ExA1
-      switch(chip8->opcode & 0x00F0) {
-	case 0x0090:
-          Opcode_Ex91(chip8);
+    case 0xE000: //Ex9E ExA1
+      switch(chip8->opcode & 0x00FF) {
+	case 0x009E:
+          Opcode_Ex9E(chip8);
 	  break; 
-	case 0x00A0:
+	case 0x00A1:
           Opcode_ExA1(chip8);
 	  break; 
       }
