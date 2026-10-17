@@ -39,6 +39,7 @@ typedef struct {
   //graphics
   uint32_t *display;
   bool update;
+  bool vblank;
   //keyboard
   uint8_t *keyboard;
   int8_t pressed_key;

@@ -27,6 +27,7 @@ bool InitChip8(Chip8* chip8)
   if(!chip8->display) return false;
   ClearDisplay(chip8->display);
   chip8->update = false;
+  chip8->update = true;
   //keyboard
   chip8->keyboard = calloc(KEYBOARD_SIZE, sizeof(uint8_t));
   if(!chip8->keyboard) return false;
@@ -64,9 +65,9 @@ bool WriteFontsToMemory(uint8_t *memory)
 
 bool WriteRomsToMemory(uint8_t *memory)
 {
-  int fd = open("../roms/quirks.ch8", O_RDONLY);
+  int fd = open("../roms/pong.ch8", O_RDONLY);
   if(fd == -1) {
-    perror("../roms/quirks.ch8");
+    perror("../roms/pong.ch8");
     return false;
   }
 
@@ -260,11 +261,17 @@ static void Opcode_Cxkk(Chip8* chip8)
   chip8->pc += 2;
 
 }
-
+/*
+static uint8_t Clip(uint8_t x, uint8_t min, uint8_t max)
+{
+  return (x < min) ? min : (x > max) ? max : x;
+}
+*/
 static void Opcode_Dxyn(Chip8* chip8)
 {
-  uint8_t x = chip8->v[(chip8->opcode & 0x0F00) >> 8] % 64;
-  uint8_t y = chip8->v[(chip8->opcode & 0x00F0) >> 4] % 32;
+  if(chip8->vblank==false) return;
+  uint8_t x = chip8->v[(chip8->opcode & 0x0F00) >> 8]%64;
+  uint8_t y = chip8->v[(chip8->opcode & 0x00F0) >> 4]%32;
   uint8_t h = chip8->opcode & 0x000F;
   uint8_t pixel;
 
@@ -272,18 +279,22 @@ static void Opcode_Dxyn(Chip8* chip8)
   for(uint8_t yline = 0; yline < h; ++yline) {
     pixel = chip8->memory[chip8->i+(uint16_t)yline];
     for(uint8_t xline = 0; xline < 8; ++xline) {
-      if((pixel & (0x80 >> xline)) != 0) {
-        if(chip8->display[x + xline + ((y + yline) * 64)] == PIXEL_ON) {
-          chip8->display[x + xline + ((y + yline) * 64)] = PIXEL_OFF;
+      uint8_t sum_x = x+xline;
+      uint8_t sum_y = y+yline;
+      if((pixel & (0x80 >> xline)) != 0 && sum_x < 64 && sum_y < 32) {
+	uint16_t idx_display = sum_x + (sum_y * 64);
+        if(chip8->display[idx_display] == PIXEL_ON) {
+          chip8->display[idx_display] = PIXEL_OFF;
           chip8->v[0xF] = 1;
         }else {
-          chip8->display[x + xline + ((y + yline) * 64)] = PIXEL_ON;
+          chip8->display[idx_display] = PIXEL_ON;
         } 
       }
     }
   }
   chip8->pc += 2;
   chip8->update = true;
+  chip8->vblank = false;
 }
 
 static void Opcode_Ex9E(Chip8* chip8)
