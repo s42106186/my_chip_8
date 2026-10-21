@@ -1,5 +1,5 @@
 #define SDL_MAIN_USE_CALLBACKS 1
-#include "chip_8.h"
+#include "chip8.h"
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
@@ -160,9 +160,14 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     }
     app->last_tick += 17;
     app->chip8.vblank = true;
-  }
 
-  EmulateCycle(&app->chip8);
+    for(int k = 0; k < 10; ++k)
+      EmulateCycle(&app->chip8);
+
+  } else {
+    SDL_Delay(1); 
+  }
+  
   if (app->chip8.update) {
     SDL_RenderClear(app->ren);
     SDL_UpdateTexture(app->tex, NULL, app->chip8.display, 256);
