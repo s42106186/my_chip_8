@@ -1,16 +1,13 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -Werror
+CFLAGS = -Wall -Wextra -Werror 
 LDFLAGS = -lSDL3
+OBJS = run.o chip8.o
 
-all: run.o chip8.o 
-	$(CC) -o chip8 run.o chip8.o $(LDFLAGS)
+chip8: $(OBJS)
+	$(CC) -o $@ $(OBJS) $(LDFLAGS)
 
-run.o: run.c
-	$(CC) $(CFLAGS) -c run.c
-
-chip8.o: chip8.c chip8.h
-	$(CC) $(CFLAGS) -c chip8.c chip8.h
+%.o: %.c chip8.h
+	$(CC) $(CFLAGS) -c $<
 
 clean:
-	rm -f *.o *.gch chip8 
-
+	rm -f *.o chip8
