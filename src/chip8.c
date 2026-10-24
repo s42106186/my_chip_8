@@ -69,7 +69,7 @@ void WriteFontsToMemory(uint8_t* memory) {
 
 bool WriteRomsToMemory(uint8_t* memory, int argc, char* argv[]) {
   if (argc != 2) {
-    printf("Enter the name of one game!\n");
+    printf("Введите название только одной игры!\n");
     return false;
   }
 
@@ -86,16 +86,16 @@ bool WriteRomsToMemory(uint8_t* memory, int argc, char* argv[]) {
   if (res) {
     struct stat st;
     if (fstat(fd, &st) == -1) {
-      perror("Stat error!\n");
+      perror("Ошибка получения статистики приложения!\n");
       res = false;
     } else {
       if (st.st_size <= (kMemorySize - kProgramStart)) {
         if (read(fd, memory + kProgramStart, st.st_size) == -1) {
-          perror("Read error!\n");
+          perror("Ошибка чтения!\n");
           res = false;
         }
       } else {
-        printf("Big size rom!\n");
+        printf("Размер приложения слишком большой!\n");
         res = false;
       }
     }
@@ -122,12 +122,14 @@ static void Opcode1nnn(Chip8* chip8) {
 }
 
 // Вызывает подпрограмму
-static void Opcode2nnn(Chip8* chip8) {
-  if (chip8->stack_pointer <= 15) {
-    chip8->stack[chip8->stack_pointer] = chip8->program_counter + 2;
-    chip8->program_counter = chip8->opcode & 0x0FFF;
+static bool Opcode2nnn(Chip8* chip8) {
+  if (chip8->stack_pointer >= 16) {
+    printf("Переполнение стэка!\n");
+    return false;
   }
-  if (chip8->stack_pointer < 15) chip8->stack_pointer++;
+  chip8->stack[chip8->stack_pointer++] = chip8->program_counter + 2;
+  chip8->program_counter = chip8->opcode & 0x0FFF;
+  return true;
 }
 
 // Пропускает следующую инструкцию, если Vx == kk
@@ -251,8 +253,14 @@ static void OpcodeAnnn(Chip8* chip8) {
 }
 
 // Устанавливает program_counter = nnn + V0
-static void OpcodeBnnn(Chip8* chip8) {
+static bool OpcodeBnnn(Chip8* chip8) {
+  bool res = true;
   chip8->program_counter = (chip8->opcode & 0xFFF) + chip8->v[0x0];
+  if (chip8->program_counter > 0xFFF) {
+    printf("Выход за пределы памяти!\n");
+    res = false;
+  }
+  return res;
 }
 
 /*
@@ -267,8 +275,9 @@ static void OpcodeCxkk(Chip8* chip8) {
 }
 
 // Включает и выключает пиксели экрана. При выключении пикселя VF = 1, иначе 0
-static void OpcodeDxyn(Chip8* chip8) {
-  if (chip8->vblank == false) return;
+static bool OpcodeDxyn(Chip8* chip8) {
+  bool res = true;
+  if (chip8->vblank == false) return res;
 
   uint8_t x = chip8->v[(chip8->opcode & 0x0F00) >> 8] % kDisplayWidth;
   uint8_t y = chip8->v[(chip8->opcode & 0x00F0) >> 4] % kDisplayHeight;
@@ -284,10 +293,16 @@ static void OpcodeDxyn(Chip8* chip8) {
   chip8->v[0xF] = 0;
 
   // Считывает n байтов из памяти, начиная с i
-  for (int yline = 0; yline < height; ++yline) {
-    pixel = chip8->memory[chip8->i + yline];
+  for (int yline = 0; yline < height && res; ++yline) {
+    uint16_t adress_memory = chip8->i + yline;
+    if (adress_memory > 0xFFF) {
+      printf("Выход за пределы памяти!\n");
+      res = false;
+    } else {
+      pixel = chip8->memory[chip8->i + yline];
+    }
 
-    for (int xline = 0; xline < width; ++xline) {
+    for (int xline = 0; xline < width && res; ++xline) {
       int sum_x = x + xline;
       int sum_y = y + yline;
 
@@ -309,6 +324,7 @@ static void OpcodeDxyn(Chip8* chip8) {
   chip8->program_counter += 2;
   chip8->update = true;
   chip8->vblank = false;
+  return res;
 }
 
 // Пропускает следующую инструкцию, если нажата клавиша со значение Vx
@@ -359,9 +375,16 @@ static void OpcodeFx18(Chip8* chip8) {
 }
 
 // Устанавливает i = i + Vx
-static void OpcodeFx1E(Chip8* chip8) {
+static bool OpcodeFx1E(Chip8* chip8) {
+  bool res = true;
   chip8->i += chip8->v[(chip8->opcode & 0x0F00) >> 8];
-  chip8->program_counter += 2;
+  if (chip8->i > 0xFFF) {
+    printf("Выход за пределы памяти!\n");
+    res = false;
+  } else {
+    chip8->program_counter += 2;
+  }
+  return res;
 }
 
 // Устанавливает i местоположение шрифта, соответствующего Vx
@@ -394,12 +417,13 @@ static void OpcodeFx65(Chip8* chip8) {
   chip8->program_counter += 2;
 }
 
-static void UnknownOpcode(Chip8* chip8) {
-  printf("Unknown opcode [0x%X]\n", chip8->opcode);
-  chip8->program_counter += 2;
+static bool UnknownOpcode(Chip8* chip8) {
+  printf("Неизвестная инструкция [0x%X]!\n", chip8->opcode);
+  return false;
 }
 
-void EmulateCycle(Chip8* chip8) {
+bool EmulateCycle(Chip8* chip8) {
+  bool res = true;
   uint16_t part_one = chip8->memory[chip8->program_counter] << 8;
   uint16_t part_two = chip8->memory[chip8->program_counter + 1];
   chip8->opcode = part_one | part_two;
@@ -413,14 +437,14 @@ void EmulateCycle(Chip8* chip8) {
           Opcode00EE(chip8);
           break;
         default:
-          UnknownOpcode(chip8);
+          res = UnknownOpcode(chip8);
       }
       break;
     case 0x1000:
       Opcode1nnn(chip8);
       break;
     case 0x2000:
-      Opcode2nnn(chip8);
+      res = Opcode2nnn(chip8);
       break;
     case 0x3000:
       Opcode3xkk(chip8);
@@ -467,7 +491,7 @@ void EmulateCycle(Chip8* chip8) {
           Opcode8xyE(chip8);
           break;
         default:
-          UnknownOpcode(chip8);
+          res = UnknownOpcode(chip8);
       }
       break;
     case 0x9000:
@@ -477,13 +501,13 @@ void EmulateCycle(Chip8* chip8) {
       OpcodeAnnn(chip8);
       break;
     case 0xB000:
-      OpcodeBnnn(chip8);
+      res = OpcodeBnnn(chip8);
       break;
     case 0xC000:
       OpcodeCxkk(chip8);
       break;
     case 0xD000:
-      OpcodeDxyn(chip8);
+      res = OpcodeDxyn(chip8);
       break;
     case 0xE000:
       switch (chip8->opcode & 0x00FF) {
@@ -494,7 +518,7 @@ void EmulateCycle(Chip8* chip8) {
           OpcodeExA1(chip8);
           break;
         default:
-          UnknownOpcode(chip8);
+          res = UnknownOpcode(chip8);
       }
       break;
     case 0xF000:
@@ -512,7 +536,7 @@ void EmulateCycle(Chip8* chip8) {
           OpcodeFx18(chip8);
           break;
         case 0x001E:
-          OpcodeFx1E(chip8);
+          res = OpcodeFx1E(chip8);
           break;
         case 0x0029:
           OpcodeFx29(chip8);
@@ -527,11 +551,11 @@ void EmulateCycle(Chip8* chip8) {
           OpcodeFx65(chip8);
           break;
         default:
-          UnknownOpcode(chip8);
+          res = UnknownOpcode(chip8);
       }
       break;
     default:
-      UnknownOpcode(chip8);
+      res = UnknownOpcode(chip8);
   }
-  return;
+  return res;
 }

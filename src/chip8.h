@@ -38,6 +38,6 @@ void WriteFontsToMemory(uint8_t* memory);
 // Запись программы в память
 bool WriteRomsToMemory(uint8_t* memory, int argc, char* argv[]);
 // Эмуляция одного цикла процессора
-void EmulateCycle(Chip8* chip8);
+bool EmulateCycle(Chip8* chip8);
 
 #endif  // CHIP8

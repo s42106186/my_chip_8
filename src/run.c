@@ -141,6 +141,7 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event) {
 
 SDL_AppResult SDL_AppIterate(void* appstate) {
   App* app = appstate;
+  SDL_AppResult res = SDL_APP_CONTINUE;
   /*
   Считаем тики, чтобы обновлять таймеры и
   ограничивать выполнение скорость выполнения циклов процессора.
@@ -167,7 +168,9 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
     app->last_tick += 17;
     app->chip8.vblank = true;
 
-    for (int k = 0; k < 10; ++k) EmulateCycle(&app->chip8);
+    for (int k = 0; k < 10 && res == SDL_APP_CONTINUE; ++k) {
+      if (!EmulateCycle(&app->chip8)) res = SDL_APP_FAILURE;
+    }
 
   } else {
     SDL_Delay(1);
@@ -180,7 +183,7 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
     SDL_RenderPresent(app->renderer);
     app->chip8.update = false;
   }
-  return SDL_APP_CONTINUE;
+  return res;
 }
 
 void SDL_AppQuit(void* appstate, SDL_AppResult result) {
@@ -192,7 +195,7 @@ void SDL_AppQuit(void* appstate, SDL_AppResult result) {
   }
 
   if (result == SDL_APP_FAILURE)
-    SDL_Log("Fail:(!");
+    SDL_Log("Ошибка:(!");
   else
-    SDL_Log("Success:)!");
+    SDL_Log("Успех:)!");
 }
